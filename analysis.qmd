@@ -35,7 +35,8 @@ event_windows <- tribble(
   ~event, ~start, ~end,
   "Luna/UST crash", as.Date("2022-05-07"), as.Date("2022-05-12"),
   "FTX collapse", as.Date("2022-11-08"), as.Date("2022-11-11")
-)
+) |>
+  mutate(label_y = c(0.98, 0.88))
 
 ggplot(category_market_caps, aes(x = date, y = market_cap_usd, fill = category_name)) +
   geom_area(position = "fill") +
@@ -48,28 +49,45 @@ ggplot(category_market_caps, aes(x = date, y = market_cap_usd, fill = category_n
   ) +
   geom_label(
     data = event_windows,
-    aes(x = start, y = 1, label = event),
+    aes(x = start, y = label_y, label = event),
     inherit.aes = FALSE,
     hjust = 0,
-    vjust = 1,
     size = 3
   ) +
   scale_fill_viridis_d(option = "cividis", name = "Category") +
-  scale_y_continuous(labels = scales::label_percent()) +
+  guides(fill = guide_legend(nrow = 2, byrow = TRUE)) +
+  scale_y_continuous(
+    labels = scales::label_percent(),
+    breaks = seq(0, 1, by = 0.25),
+    expand = expansion(mult = c(0, 0.02))
+  ) +
   labs(
     x = "Date",
-    y = "Share of total market capitalization",
+    y = "Share of market capitalization",
     title = "Crypto Market-Cap Share by Category",
-    subtitle = "Daily market-cap share of the 22 coins in this dataset, grouped by category",
+    subtitle = "Daily category shares across 22 tracked coins; each day totals 100%",
     caption = "Source: Daily price, coin metadata, and category parquet files supplied with this analysis."
   ) +
-  theme_minimal()
+  theme_minimal(base_size = 12) +
+  theme(
+    plot.title.position = "plot",
+    plot.caption.position = "plot",
+    legend.position = "bottom"
+  )
 ```
 
 ```{r}
 crypto |>
   filter(coin_id == "btc") |>
   ggplot(aes(x = date, y = price_usd)) +
-  geom_line() +
-  labs(x = "Date", y = "Price (USD)", title = "Bitcoin Daily Price")
+  geom_line(color = "#0072B2", linewidth = 0.5) +
+  scale_y_continuous(labels = scales::label_dollar()) +
+  labs(
+    x = "Date",
+    y = "Daily price (USD)",
+    title = "Bitcoin Daily Price",
+    subtitle = "Historical daily prices across the full dataset"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(plot.title.position = "plot")
 ```
