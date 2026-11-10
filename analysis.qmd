@@ -1,0 +1,75 @@
+---
+title: "Crypto Markets"
+author: "Grady Woodard"
+execute:
+  echo: false
+---
+
+```{r}
+#| message: false
+library(tidyverse)
+library(arrow)
+```
+
+```{r}
+#| cache: true
+prices <- open_dataset("data/daily_prices.parquet") |>
+  collect()
+metadata <- open_dataset("data/coin_metadata.parquet") |>
+  collect()
+categories <- open_dataset("data/categories.parquet") |>
+  collect()
+crypto <- prices |>
+  left_join(metadata, by = "coin_id") |>
+  left_join(select(categories, -description), by = "category_id") |>
+  mutate(date = ymd(date_raw))
+```
+
+```{r}
+category_market_caps <- crypto |>
+  group_by(date, category_name) |>
+  summarise(market_cap_usd = sum(market_cap_usd, na.rm = TRUE), .groups = "drop") |>
+  mutate(category_name = fct_reorder(category_name, market_cap_usd, .fun = mean))
+
+event_windows <- tribble(
+  ~event, ~start, ~end,
+  "Luna/UST crash", as.Date("2022-05-07"), as.Date("2022-05-12"),
+  "FTX collapse", as.Date("2022-11-08"), as.Date("2022-11-11")
+)
+
+ggplot(category_market_caps, aes(x = date, y = market_cap_usd, fill = category_name)) +
+  geom_area(position = "fill") +
+  geom_rect(
+    data = event_windows,
+    aes(xmin = start, xmax = end, ymin = 0, ymax = 1),
+    inherit.aes = FALSE,
+    fill = "grey20",
+    alpha = 0.15
+  ) +
+  geom_label(
+    data = event_windows,
+    aes(x = start, y = 1, label = event),
+    inherit.aes = FALSE,
+    hjust = 0,
+    vjust = 1,
+    size = 3
+  ) +
+  scale_fill_viridis_d(option = "cividis", name = "Category") +
+  scale_y_continuous(labels = scales::label_percent()) +
+  labs(
+    x = "Date",
+    y = "Share of total market capitalization",
+    title = "Crypto Market-Cap Share by Category",
+    subtitle = "Daily market-cap share of the 22 coins in this dataset, grouped by category",
+    caption = "Source: Daily price, coin metadata, and category parquet files supplied with this analysis."
+  ) +
+  theme_minimal()
+```
+
+```{r}
+crypto |>
+  filter(coin_id == "btc") |>
+  ggplot(aes(x = date, y = price_usd)) +
+  geom_line() +
+  labs(x = "Date", y = "Price (USD)", title = "Bitcoin Daily Price")
+```
